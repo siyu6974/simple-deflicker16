@@ -20,13 +20,22 @@ type rgbHistogram struct {
 	b histogram
 }
 
-func generateRgbHistogramFromImage(input image.Image) rgbHistogram {
+func generateRgbHistogramFromImage(input image.Image, minBrightness uint32) rgbHistogram {
 	var rgbHistogram rgbHistogram
 	bounds := input.Bounds()
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
 			r, g, b, _ := input.At(x, y).RGBA()
 			// RGBA() returns values in [0, 0xffff], so no shift is needed for 16-bit.
+
+			// Calculate brightness
+			brightness := (r + g + b) / 3
+
+			// Skip pixel if brightness is below minBrightness
+			if brightness < minBrightness {
+				continue
+			}
+
 			rgbHistogram.r[r]++
 			rgbHistogram.g[g]++
 			rgbHistogram.b[b]++
@@ -52,9 +61,27 @@ func generateRgbLutFromRgbHistograms(current rgbHistogram, target rgbHistogram) 
 	currentCumulativeRgbHistogram := convertToCumulativeRgbHistogram(current)
 	targetCumulativeRgbHistogram := convertToCumulativeRgbHistogram(target)
 	var ratio [3]float64
-	ratio[0] = float64(currentCumulativeRgbHistogram.r[histSize-1]) / float64(targetCumulativeRgbHistogram.r[histSize-1])
-	ratio[1] = float64(currentCumulativeRgbHistogram.g[histSize-1]) / float64(targetCumulativeRgbHistogram.g[histSize-1])
-	ratio[2] = float64(currentCumulativeRgbHistogram.b[histSize-1]) / float64(targetCumulativeRgbHistogram.b[histSize-1])
+
+	// Calculate ratio for R channel, checking for division by zero
+	if targetCumulativeRgbHistogram.r[histSize-1] == 0 {
+		ratio[0] = 1.0
+	} else {
+		ratio[0] = float64(currentCumulativeRgbHistogram.r[histSize-1]) / float64(targetCumulativeRgbHistogram.r[histSize-1])
+	}
+
+	// Calculate ratio for G channel, checking for division by zero
+	if targetCumulativeRgbHistogram.g[histSize-1] == 0 {
+		ratio[1] = 1.0
+	} else {
+		ratio[1] = float64(currentCumulativeRgbHistogram.g[histSize-1]) / float64(targetCumulativeRgbHistogram.g[histSize-1])
+	}
+
+	// Calculate ratio for B channel, checking for division by zero
+	if targetCumulativeRgbHistogram.b[histSize-1] == 0 {
+		ratio[2] = 1.0
+	} else {
+		ratio[2] = float64(currentCumulativeRgbHistogram.b[histSize-1]) / float64(targetCumulativeRgbHistogram.b[histSize-1])
+	}
 
 	for i := 0; i < histSize; i++ {
 		targetCumulativeRgbHistogram.r[i] = uint32(0.5 + float64(targetCumulativeRgbHistogram.r[i])*ratio[0])

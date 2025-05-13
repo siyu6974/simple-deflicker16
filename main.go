@@ -52,7 +52,7 @@ func runDeflickering() error {
 		if err != nil {
 			return pic, errors.New(pic.currentPath + " | " + err.Error())
 		}
-		pic.currentRgbHistogram = generateRgbHistogramFromImage(img)
+		pic.currentRgbHistogram = generateRgbHistogramFromImage(img, config.MinBrightness) // Pass config.MinBrightness
 		return pic, nil
 	})
 	if analyzeError != nil {
